@@ -1,0 +1,34 @@
+Perubahan yang perlu dilakukan di home_page.dart:
+
+1. Ubah line 164:
+   OLD: setState(() => _error = e.toString());
+   NEW: setState(() => _error = _formatErrorMessage(e));
+
+2. Tambah method baru setelah _formatDateTime (setelah line 214):
+
+  String _formatErrorMessage(dynamic error) {
+    final msg = error.toString().toLowerCase();
+    if (msg.contains('connection') || msg.contains('refused')) {
+      return 'Tidak dapat terhubung ke server. Periksa koneksi internet dan URL server.';
+    }
+    if (msg.contains('timeout')) {
+      return 'Koneksi ke server timeout. Coba lagi nanti.';
+    }
+    if (msg.contains('route to host') || msg.contains('unreachable')) {
+      return 'Server tidak dapat diakses. Periksa alamat IP server.';
+    }
+    if (msg.contains('socket')) {
+      return 'Koneksi network error. Periksa koneksi internet Anda.';
+    }
+    if (msg.contains('unauthorized') || msg.contains('401')) {
+      return 'Akses ditolak. Periksa token API di Settings.';
+    }
+    return 'Terjadi kesalahan. Coba lagi nanti.';
+  }
+
+3. Hapus badge offline dari AppBar bottom (line 1222-1260):
+   - Ubah preferredSize dari 84 menjadi 48
+   - Hapus Padding berisi Container offline indicator
+   - Biarkan hanya TabBar
+
+Tools tidak bisa langsung edit sekarang, mohon lakukan perubahan manual atau tunggu
