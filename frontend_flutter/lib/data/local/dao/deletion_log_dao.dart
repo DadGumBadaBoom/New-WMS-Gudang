@@ -37,4 +37,25 @@ class DeletionLogDao {
     final db = await _db;
     await db.delete('deletion_log');
   }
+
+  Future<List<DeletionLogLocal>> getPendingSync() async {
+    final db = await _db;
+    final res = await db.query(
+      'deletion_log',
+      where: 'is_synced = ?',
+      whereArgs: [0],
+      orderBy: 'deleted_at ASC',
+    );
+    return res.map((e) => DeletionLogLocal.fromMap(e)).toList();
+  }
+
+  Future<void> markSynced(int id) async {
+    final db = await _db;
+    await db.update(
+      'deletion_log',
+      {'is_synced': 1},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
 }

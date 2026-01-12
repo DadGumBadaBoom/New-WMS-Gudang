@@ -20,7 +20,7 @@ class DbProvider {
 
     return openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: (db, version) async {
         // Tabel master barang lokal
         await db.execute('''
@@ -93,10 +93,12 @@ class DbProvider {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             entity_type TEXT,
             entity_id INTEGER,
+            server_id INTEGER,
             kode TEXT,
             nama TEXT,
             detail TEXT,
-            deleted_at TEXT
+            deleted_at TEXT,
+            is_synced INTEGER DEFAULT 0
           );
         ''');
       },
@@ -132,6 +134,20 @@ class DbProvider {
               deleted_at TEXT
             );
           ''');
+        }
+
+        // Migration v3 -> v4: tambah is_synced & server_id ke deletion_log
+        if (oldVersion < 4) {
+          try {
+            await db.execute(
+              'ALTER TABLE deletion_log ADD COLUMN is_synced INTEGER DEFAULT 0',
+            );
+          } catch (_) {}
+          try {
+            await db.execute(
+              'ALTER TABLE deletion_log ADD COLUMN server_id INTEGER',
+            );
+          } catch (_) {}
         }
       },
     );

@@ -75,4 +75,11 @@ class ApiService {
   Future<Response<T>> healthCheck<T>() async {
     return _dio.get('/health');
   }
+
+  // Push deletions ke server
+  Future<Response<T>> syncDeletions<T>(
+    List<Map<String, dynamic>> deletions,
+  ) async {
+    return _dio.post('/sync/deletions', data: {'deletions': deletions});
+  }
 }

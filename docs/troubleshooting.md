@@ -47,6 +47,24 @@ Ringkasan masalah umum yang pernah muncul selama pengembangan, beserta langkah p
   4. Periksa token/otorisasi jika backend memerlukan.
   5. Jika offline, tunggu koneksi stabil lalu ulangi sinkron.
 
+## 6.1) Push Deletions mengembalikan 404
+- Gejala: Error "Server tidak dapat diakses" atau 404 saat sinkron, tapi health check hijau.
+- Akar masalah: Endpoint `/api/sync/deletions` belum dibuat di backend.
+- Langkah:
+  1. Implementasi endpoint di backend CI4 (lihat `docs/backend-deletion-endpoint.md`).
+  2. Saat 404, frontend otomatis menandai deletion sebagai `is_synced=1` untuk mencegah retry loop.
+  3. Setelah endpoint siap, data deletion log yang masih pending akan dikirim ulang.
+  4. Pastikan backend menerima payload JSON: `{deletions: [{entity_type, server_id, deleted_at, ...}]}`
+
+## 6.2) Data yang dihapus muncul lagi setelah pull
+- Gejala: Hapus barang/transaksi lokal, pull dari server, data kembali muncul.
+- Akar masalah: Pull tidak memeriksa deletion_log, sehingga data dari server di-insert ulang.
+- Perbaikan: Sejak v0.4.0, pull otomatis skip data dengan `server_id` yang ada di deletion_log (30 hari terakhir).
+- Pastikan:
+  1. Database versi 4 (dengan kolom `is_synced`, `server_id` di deletion_log).
+  2. Setiap hapus data harus menyimpan `server_id` ke deletion_log (bukan `entity_id` lokal).
+  3. Backend juga menghapus data berdasarkan `server_id` saat menerima push deletions.
+
 ## 7) Health Check selalu merah meski server hidup
 - Gejala: Health gagal padahal endpoint aktif.
 - Langkah:

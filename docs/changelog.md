@@ -2,6 +2,14 @@
 
 Ringkasan perubahan sejak awal pengembangan.
 
+## v0.4.0 — 2026-01-12
+- **Deletion sync ke backend**: Data yang dihapus lokal kini dikirim ke server saat sync.
+  - Tabel `deletion_log` bertambah kolom `is_synced` dan `server_id` (migrasi DB v3→v4).
+  - Push deletions ke endpoint `/api/sync/deletions` sebelum push data lain.
+  - Pull skip data yang sudah dihapus lokal (cek `serverId` di deletion log 30 hari terakhir).
+  - Graceful handling untuk endpoint 404 (jika backend belum siap).
+- Dokumentasi backend: panduan implementasi endpoint deletion di `docs/backend-deletion-endpoint.md`.
+
 ## v0.3.0 — 2026-01-07
 - Health check lebih ramah: pesan diformat (timeout/koneksi/unauthorized) dan warna hijau/merah.
 - Riwayat Error Log: simpan 50 entri terakhir (timestamp, pesan ramah, raw error) + tampilan di menu.

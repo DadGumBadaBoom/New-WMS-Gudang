@@ -126,6 +126,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   Future<void> _logDeletion({
     required String entityType,
     int? entityId,
+    int? serverId,
     required String kode,
     required String nama,
     String? detail,
@@ -135,6 +136,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       DeletionLogLocal(
         entityType: entityType,
         entityId: entityId,
+        serverId: serverId,
         kode: kode,
         nama: nama,
         detail: detail,
@@ -386,6 +388,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     await _logDeletion(
       entityType: 'barang',
       entityId: barang.id,
+      serverId: barang.serverId,
       kode: barang.kodeBarang,
       nama: barang.namaBarang,
       detail: 'stok:${barang.stokSaatIni} synced:${barang.isSynced}',
@@ -1003,6 +1006,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     await _logDeletion(
       entityType: 'transaksi_masuk',
       entityId: trx.id,
+      serverId: trx.serverId,
       kode: trx.kodeTransaksi,
       nama: trx.namaBarang ?? '-',
       detail: 'jumlah:${trx.jumlah} tanggal:${trx.tanggal}',
@@ -1159,6 +1163,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     await _logDeletion(
       entityType: 'transaksi_keluar',
       entityId: trx.id,
+      serverId: trx.serverId,
       kode: trx.kodeTransaksi,
       nama: trx.namaBarang ?? '-',
       detail: 'jumlah:${trx.jumlah} tanggal:${trx.tanggal}',

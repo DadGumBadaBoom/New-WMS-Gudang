@@ -3,10 +3,11 @@
 Sistem manajemen gudang dengan arsitektur offline‑first: aplikasi Flutter menyimpan data lokal di SQLite dan melakukan sinkronisasi aman ke REST API CodeIgniter 4. Dirancang agar tetap berjalan lancar walau koneksi internet tidak stabil.
 
 ## Ringkas Fitur
-- Offline‑first: data tersimpan lokal, sinkron otomatis saat online
-- REST API modular berbasis CodeIgniter 4
-- Sinkronisasi push/pull transaksi masuk/keluar & stok
-- Multi‑platform: Android, iOS, Web, Windows, macOS, Linux
+- **Offline‑first**: data tersimpan lokal di SQLite, sinkron otomatis saat online
+- **Deletion sync**: penghapusan data lokal otomatis disinkronkan ke server
+- **REST API** modular berbasis CodeIgniter 4
+- **Sinkronisasi push/pull** transaksi masuk/keluar & stok barang
+- **Multi‑platform**: Android, iOS, Web, Windows, macOS, Linux
 
 ## Susunan Repo
 - [backend-ci4](backend-ci4/): REST API (PHP, CodeIgniter 4)
@@ -48,7 +49,10 @@ flutter run -d windows   # atau -d chrome / -d android
 ## Dokumentasi
 - Panduan memulai: [docs/getting-started.md](docs/getting-started.md)
 - Arsitektur & alur: [docs/architecture.md](docs/architecture.md)
+- **API Endpoints**: [docs/api-endpoints.md](docs/api-endpoints.md)
+- Deletion sync backend: [docs/backend-deletion-endpoint.md](docs/backend-deletion-endpoint.md)
 - Testing API: [docs/testing.md](docs/testing.md)
+- Troubleshooting: [docs/troubleshooting.md](docs/troubleshooting.md)
 - Changelog: [docs/changelog.md](docs/changelog.md)
 - Cheat‑sheet presentasi: [docs/presentation-cheatsheet.md](docs/presentation-cheatsheet.md)
 

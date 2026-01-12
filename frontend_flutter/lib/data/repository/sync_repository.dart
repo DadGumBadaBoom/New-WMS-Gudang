@@ -2,10 +2,12 @@ import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../local/dao/barang_dao.dart';
+import '../local/dao/deletion_log_dao.dart';
 import '../local/dao/stok_dao.dart';
 import '../local/dao/transaksi_keluar_dao.dart';
 import '../local/dao/transaksi_masuk_dao.dart';
 import '../local/models/barang_local.dart';
+import '../local/models/deletion_log_local.dart';
 import '../local/models/stok_local.dart';
 import '../local/models/transaksi_keluar_local.dart';
 import '../local/models/transaksi_masuk_local.dart';
@@ -19,17 +21,20 @@ class SyncRepository {
     StokDao? stokDao,
     TransaksiMasukDao? transaksiMasukDao,
     TransaksiKeluarDao? transaksiKeluarDao,
+    DeletionLogDao? deletionLogDao,
   }) : _api = apiService ?? ApiService(),
        _barangDao = barangDao ?? BarangDao(),
        _stokDao = stokDao ?? StokDao(),
        _transaksiMasukDao = transaksiMasukDao ?? TransaksiMasukDao(),
-       _transaksiKeluarDao = transaksiKeluarDao ?? TransaksiKeluarDao();
+       _transaksiKeluarDao = transaksiKeluarDao ?? TransaksiKeluarDao(),
+       _deletionLogDao = deletionLogDao ?? DeletionLogDao();
 
   final ApiService _api;
   final BarangDao _barangDao;
   final StokDao _stokDao;
   final TransaksiMasukDao _transaksiMasukDao;
   final TransaksiKeluarDao _transaksiKeluarDao;
+  final DeletionLogDao _deletionLogDao;
 
   static const _kLastPushKey = 'last_push_at';
   static const _kLastPullKey = 'last_pull_at';
@@ -40,12 +45,19 @@ class SyncRepository {
     final pendingStok = await _stokDao.getPendingSync();
     final pendingMasuk = await _transaksiMasukDao.getPendingSync();
     final pendingKeluar = await _transaksiKeluarDao.getPendingSync();
+    final pendingDeletions = await _deletionLogDao.getPendingSync();
 
     if (pendingBarang.isEmpty &&
         pendingStok.isEmpty &&
         pendingMasuk.isEmpty &&
-        pendingKeluar.isEmpty) {
+        pendingKeluar.isEmpty &&
+        pendingDeletions.isEmpty) {
       return;
+    }
+
+    // Push deletions terlebih dahulu
+    if (pendingDeletions.isNotEmpty) {
+      await _pushDeletions(pendingDeletions);
     }
 
     final payload = {
@@ -105,9 +117,55 @@ class SyncRepository {
       final List stok = data['stok'] ?? [];
       final List masuk = data['transaksi_masuk'] ?? [];
       final List keluar = data['transaksi_keluar'] ?? [];
+
+      // Ambil list deleted entities dalam 30 hari terakhir untuk skip saat pull
+      final deletedLogs = await _deletionLogDao.getRecent(limit: 1000);
+      final cutoffDate = DateTime.now().subtract(const Duration(days: 30));
+      final recentDeletedBarangIds = deletedLogs
+          .where(
+            (log) =>
+                log.entityType == 'barang' &&
+                log.serverId != null &&
+                DateTime.tryParse(log.deletedAt)?.isAfter(cutoffDate) == true,
+          )
+          .map((log) => log.serverId!)
+          .toSet();
+      final recentDeletedStokIds = deletedLogs
+          .where(
+            (log) =>
+                log.entityType == 'stok' &&
+                log.serverId != null &&
+                DateTime.tryParse(log.deletedAt)?.isAfter(cutoffDate) == true,
+          )
+          .map((log) => log.serverId!)
+          .toSet();
+      final recentDeletedMasukIds = deletedLogs
+          .where(
+            (log) =>
+                log.entityType == 'transaksi_masuk' &&
+                log.serverId != null &&
+                DateTime.tryParse(log.deletedAt)?.isAfter(cutoffDate) == true,
+          )
+          .map((log) => log.serverId!)
+          .toSet();
+      final recentDeletedKeluarIds = deletedLogs
+          .where(
+            (log) =>
+                log.entityType == 'transaksi_keluar' &&
+                log.serverId != null &&
+                DateTime.tryParse(log.deletedAt)?.isAfter(cutoffDate) == true,
+          )
+          .map((log) => log.serverId!)
+          .toSet();
+
       for (final row in barang) {
+        final serverId = _asInt(row['id']);
+        // Skip jika barang ini baru dihapus lokal (dalam 30 hari terakhir)
+        if (recentDeletedBarangIds.contains(serverId)) {
+          continue;
+        }
         final mapped = BarangLocal(
-          serverId: _asInt(row['id']),
+          serverId: serverId,
           kodeBarang: row['kode_barang'] ?? '',
           namaBarang: row['nama_barang'] ?? '',
           kategori: row['kategori'],
@@ -122,8 +180,13 @@ class SyncRepository {
         await _upsertBarang(mapped);
       }
       for (final row in stok) {
+        final serverId = _asInt(row['id']);
+        // Skip jika stok ini baru dihapus lokal (dalam 30 hari terakhir)
+        if (recentDeletedStokIds.contains(serverId)) {
+          continue;
+        }
         final mapped = StokLocal(
-          serverId: _asInt(row['id']),
+          serverId: serverId,
           barangServerId: _asInt(row['barang_id']),
           jumlah: _asInt(row['jumlah']),
           keterangan: row['keterangan'],
@@ -133,8 +196,13 @@ class SyncRepository {
         await _upsertStok(mapped);
       }
       for (final row in masuk) {
+        final serverId = _asInt(row['id']);
+        // Skip jika transaksi masuk ini baru dihapus lokal (dalam 30 hari terakhir)
+        if (recentDeletedMasukIds.contains(serverId)) {
+          continue;
+        }
         final mapped = TransaksiMasukLocal(
-          serverId: _asInt(row['id']),
+          serverId: serverId,
           kodeTransaksi: row['kode_transaksi'] ?? '',
           tanggal: row['tanggal'] ?? '',
           supplier: row['supplier'],
@@ -148,8 +216,13 @@ class SyncRepository {
         await _upsertMasuk(mapped);
       }
       for (final row in keluar) {
+        final serverId = _asInt(row['id']);
+        // Skip jika transaksi keluar ini baru dihapus lokal (dalam 30 hari terakhir)
+        if (recentDeletedKeluarIds.contains(serverId)) {
+          continue;
+        }
         final mapped = TransaksiKeluarLocal(
-          serverId: _asInt(row['id']),
+          serverId: serverId,
           kodeTransaksi: row['kode_transaksi'] ?? '',
           tanggal: row['tanggal'] ?? '',
           tujuan: row['tujuan'],
@@ -217,6 +290,53 @@ class SyncRepository {
       'keterangan': k.keterangan,
       'updated_at': k.lastModified,
     };
+  }
+
+  Future<void> _pushDeletions(List<DeletionLogLocal> deletions) async {
+    final payload = deletions
+        .where((d) => d.serverId != null)
+        .map(
+          (d) => {
+            'entity_type': d.entityType,
+            'server_id': d.serverId,
+            'kode': d.kode,
+            'nama': d.nama,
+            'deleted_at': d.deletedAt,
+          },
+        )
+        .toList();
+
+    if (payload.isEmpty) {
+      // Tandai semua sebagai synced meski server_id null
+      for (final d in deletions) {
+        await _deletionLogDao.markSynced(d.id!);
+      }
+      return;
+    }
+
+    try {
+      final response = await _api.syncDeletions(payload);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // Tandai semua deletion log sebagai synced
+        for (final d in deletions) {
+          await _deletionLogDao.markSynced(d.id!);
+        }
+      }
+    } on DioException catch (e) {
+      // Jika endpoint belum dibuat (404), skip dan tandai synced
+      if (e.response?.statusCode == 404) {
+        // Endpoint belum tersedia, tandai synced untuk tidak retry terus
+        for (final d in deletions) {
+          await _deletionLogDao.markSynced(d.id!);
+        }
+        return;
+      }
+      // Error lain, throw supaya ditangkap di UI
+      rethrow;
+    } catch (e) {
+      // Error non-Dio, throw
+      rethrow;
+    }
   }
 
   Future<void> _upsertBarang(BarangLocal barang) async {
